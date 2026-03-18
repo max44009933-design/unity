@@ -10,16 +10,16 @@ jobs:
       - name: 📥 取得程式碼
         uses: actions/checkout@v4
 
-      - name: 🛠️ 手動安裝 Theos 與 SDK (繞過 API 限制與資料夾衝突)
+      - name: 🛠️ 光速安裝 Theos 與 SDK (淺複製加速版)
         run: |
-          # 1. 手動 Clone Theos 核心
-          git clone --recursive https://github.com/theos/theos.git ~/theos
+          # 1. 加上 --depth 1，只抓取 Theos 最新狀態，不抓歷史紀錄
+          git clone --recursive --depth 1 https://github.com/theos/theos.git ~/theos
           
-          # 2. 移除 Theos 內建的 sdks 佔位資料夾 (解決 already exists 報錯！)
+          # 2. 移除佔位資料夾
           rm -rf ~/theos/sdks
           
-          # 3. 手動下載完整的 iOS SDK 包
-          git clone https://github.com/theos/sdks.git ~/theos/sdks
+          # 3. 核心加速！加上 --depth 1 抓取龐大的 SDK 包，省下大量時間
+          git clone --depth 1 https://github.com/theos/sdks.git ~/theos/sdks
           
           # 4. 註冊環境變數
           echo "THEOS=~/theos" >> $GITHUB_ENV
