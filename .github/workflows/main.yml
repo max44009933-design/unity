@@ -10,11 +10,26 @@ jobs:
       - name: 📥 取得程式碼
         uses: actions/checkout@v4
 
-      - name: 🛠️ Setup Theos (Pro 級加速)
-        uses: theos/setup-theos@master
-        with:
-          # 只抓取我們需要的 SDK 版本，速度提升 100 倍！
-          sdk: 'iPhoneOS14.5'
+      - name: 🛠️ 安裝編譯工具與 ldid (精準下載版)
+        run: |
+          # 1. 安裝蓋章工具 ldid (解決上一次的簽名報錯)
+          brew install ldid
+          
+          # 2. 光速安裝 Theos 核心
+          git clone --recursive --depth 1 https://github.com/theos/theos.git ~/theos
+          rm -rf ~/theos/sdks
+          
+          # 3. 🌟 駭客級神技：只下載 14.5 SDK，略過其他 5 萬個無用檔案！
+          mkdir ~/theos/sdks
+          cd ~/theos/sdks
+          git init
+          git remote add origin https://github.com/theos/sdks.git
+          git config core.sparseCheckout true
+          echo "iPhoneOS14.5.sdk/" >> .git/info/sparse-checkout
+          git pull --depth=1 origin master
+          
+          # 4. 註冊環境變數
+          echo "THEOS=~/theos" >> $GITHUB_ENV
 
       - name: 🚀 開始編譯 (Make)
         run: |
@@ -24,8 +39,7 @@ jobs:
           make clean
           make
         env:
-          # 使用 setup-theos 自動配置好的路徑
-          THEOS: ${{ env.THEOS }}
+          THEOS: ~/theos
 
       - name: 📦 打包並交出 Dylib 檔案
         uses: actions/upload-artifact@v4
