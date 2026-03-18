@@ -10,21 +10,22 @@ jobs:
       - name: 📥 取得程式碼
         uses: actions/checkout@v4
 
-      - name: 🛠️ 光速安裝 Theos 與 SDK (淺複製加速版)
+      - name: 🛠️ 安裝編譯工具與 ldid (修正簽名報錯)
         run: |
+          # 1. 安裝蓋章工具 ldid
+          brew install ldid
+          
+          # 2. 光速安裝 Theos
           git clone --recursive --depth 1 https://github.com/theos/theos.git ~/theos
           rm -rf ~/theos/sdks
           git clone --depth 1 https://github.com/theos/sdks.git ~/theos/sdks
+          
+          # 3. 註冊環境變數
           echo "THEOS=~/theos" >> $GITHUB_ENV
-
-      - name: 🔍 檢查 Frameworks 目錄 (抓蟲專用！)
-        run: |
-          echo "看看 layout/Library/Frameworks 裡面有什麼東東："
-          ls -la ./layout/Library/Frameworks/
 
       - name: 🚀 開始編譯 (Make)
         run: |
-          # 🌟 魔法指令：叫機器人當場生出一個空的 Dummy.swift 給 Theos 用！
+          # 自動生成 Swift 鑰匙
           touch Dummy.swift
           
           make clean
@@ -36,4 +37,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: UnityAds_Compiled_Dylib
+          # 修正路徑，直接去抓生成的 dylib
           path: .theos/obj/debug/*.dylib
