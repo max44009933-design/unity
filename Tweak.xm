@@ -4,7 +4,7 @@
 // ==========================================
 // 🔴 配置區：填入你的 Unity 資訊
 // ==========================================
-NSString *const myGameId = @"5059216";    // 你的 Game ID
+NSString *const myGameId = @"6069216";    // 你的 Game ID
 NSString *const myAdUnitId = @"test0318"; // 你的 Ad Unit ID (Placement ID)
 
 // ==========================================
