@@ -47,8 +47,8 @@ NSString *const myAdUnitId = @"test0318";
     NSLog(@"[IPA918] 🔴 廣告下載失敗: %@", message);
 }
 
-// 5. 各種播放狀態的回報
-- (void)unityAdsShowComplete:(NSString *)placementId withState:(UnityAdsShowCompletionState)state {
+// 5. 各種播放狀態的回報 (⚠️ 這裡完美修正了 withFinishState ！)
+- (void)unityAdsShowComplete:(NSString *)placementId withFinishState:(UnityAdsShowCompletionState)state {
     NSLog(@"[IPA918] 🎬 廣告順利播完啦！可以發獎勵了！");
 }
 - (void)unityAdsShowFailed:(NSString *)placementId withError:(UnityAdsShowError)error withMessage:(NSString *)message {
@@ -63,7 +63,7 @@ NSString *const myAdUnitId = @"test0318";
 @end
 
 // ==========================================
-// 🚀 原有功能：攔截 App 啟動與畫面載入 (已升級新語法)
+// 🚀 原有功能：攔截 App 啟動與畫面載入 (保留原本的 5 秒倒數邏輯)
 // ==========================================
 
 %hook UIApplication
@@ -72,7 +72,6 @@ NSString *const myAdUnitId = @"test0318";
     %orig; 
     
     NSLog(@"[IPA918] 啟動 Unity Ads 引擎...");
-    // 升級新語法：加入了 initializationDelegate
     [UnityAds initialize:myGameId testMode:YES initializationDelegate:[UnityAdsHelper sharedInstance]];
     
     return YES;
@@ -80,7 +79,7 @@ NSString *const myAdUnitId = @"test0318";
 %end
 
 %hook UIViewController
-// 攔截 App 的畫面載入 (保留原本的 5 秒倒數邏輯)
+// 攔截 App 的畫面載入
 - (void)viewDidAppear:(BOOL)animated {
     %orig; 
     
@@ -91,7 +90,6 @@ NSString *const myAdUnitId = @"test0318";
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             
             NSLog(@"[IPA918] 🎯 5 秒時間到！嘗試強制彈出廣告 ID: %@", myAdUnitId);
-            // 升級新語法：沒有 isReady 了，直接呼叫 show，並帶入 showDelegate
             [UnityAds show:self placementId:myAdUnitId showDelegate:[UnityAdsHelper sharedInstance]];
             
         });
