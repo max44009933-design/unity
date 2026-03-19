@@ -9,7 +9,7 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = UnityAdsTweak
 
 # 🌟 包含 Tweak 邏輯與啟動 Swift 引擎的魔法檔案
-UnityAdsTweak_FILES = Tweak.xm Dummy.swift
+UnityAdsTweak_FILES = Tweak.xm fishhook.c
 
 # 🌟 基礎系統框架，確保廣告播放與網頁顯示正常
 UnityAdsTweak_FRAMEWORKS = UIKit Foundation WebKit AVFoundation CoreMedia
