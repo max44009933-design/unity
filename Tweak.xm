@@ -13,7 +13,7 @@ static int (*orig_kill)(pid_t, int);
 int my_kill(pid_t p, int s) { NSLog(@"[IPA918] 🛡️ 攔截到 kill，拒絕自殺！"); return 0; }
 
 // ==========================================
-// 🔴 配置區 
+// 🔴 配置區 (正式上線版)
 // ==========================================
 NSString *const myGameId = @"6069216";    
 NSString *const myAdUnitId = @"test0318"; 
@@ -22,7 +22,7 @@ static BOOL isTenSecondTimerExpired = NO;
 static BOOL isAdReadyToShow = NO;
 
 // ==========================================
-// 🛠️ 抓取頂層畫面 & 彈窗提示神器
+// 🛠️ 抓取頂層畫面神器 (播放廣告必備)
 // ==========================================
 static UIViewController *getTopViewController() {
     UIWindow *keyWindow = nil;
@@ -49,25 +49,14 @@ static UIViewController *getTopViewController() {
     return topController;
 }
 
-static void showDebugAlert(NSString *title, NSString *message) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        UIViewController *top = getTopViewController();
-        if (top) {
-            UIAlertController *alert = [UIAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-            [alert addAction:[UIAlertAction actionWithTitle:@"了解" style:UIAlertActionStyleDefault handler:nil]];
-            [top presentViewController:alert animated:YES completion:nil];
-        }
-    });
-}
-
 // ==========================================
-// 🌟 廣告助手 + 你的無敵防護雷達
+// 🌟 廣告助手 + 無敵防護雷達
 // ==========================================
 @interface UnityAdsHelper : NSObject <UnityAdsInitializationDelegate, UnityAdsLoadDelegate, UnityAdsShowDelegate>
 + (instancetype)sharedInstance;
 - (void)tryTriggerBulldozeShow; 
 - (void)startRadar;
-- (void)scanAndWipe:(UIView *)view; // 宣告掃描方法
+- (void)scanAndWipe:(UIView *)view; 
 @end
 
 @implementation UnityAdsHelper
@@ -81,22 +70,24 @@ static void showDebugAlert(NSString *title, NSString *message) {
     return sharedInstance;
 }
 
-// --- UnityAds 廣告邏輯 ---
+// --- UnityAds 廣告邏輯 (改為靜默除錯) ---
 - (void)initializationComplete {
+    NSLog(@"[IPA918] ✅ UnityAds 正式版初始化成功！準備載入廣告...");
     [UnityAds load:myAdUnitId loadDelegate:self];
 }
 
 - (void)initializationFailed:(UnityAdsInitializationError)error withMessage:(NSString *)message {
-    showDebugAlert(@"🔴 初始化失敗", message);
+    NSLog(@"[IPA918] 🔴 UnityAds 初始化失敗: %@", message);
 }
 
 - (void)unityAdsAdLoaded:(NSString *)placementId {
+    NSLog(@"[IPA918] ✅ 廣告影片已下載完成，隨時可以播放！");
     isAdReadyToShow = YES;
     [self tryTriggerBulldozeShow]; 
 }
 
 - (void)unityAdsAdFailedToLoad:(NSString *)placementId withError:(UnityAdsLoadError)error withMessage:(NSString *)message {
-    showDebugAlert(@"🔴 廣告載入失敗", [NSString stringWithFormat:@"單元: %@\n原因: %@", placementId, message]);
+    NSLog(@"[IPA918] 🔴 廣告載入失敗: %@", message);
     isAdReadyToShow = NO;
 }
 
@@ -104,23 +95,24 @@ static void showDebugAlert(NSString *title, NSString *message) {
     if (isTenSecondTimerExpired && isAdReadyToShow) {
         UIViewController *topController = getTopViewController();
         if (topController) {
+            NSLog(@"[IPA918] 🎬 條件達成，開始播放正式廣告！");
             [UnityAds show:topController placementId:myAdUnitId showDelegate:self];
         } else {
-            showDebugAlert(@"🔴 播放失敗", @"找不到最頂層的畫面來播放廣告");
+            NSLog(@"[IPA918] 🔴 找不到最頂層畫面，放棄播放。");
         }
     }
 }
 
 - (void)unityAdsShowComplete:(NSString *)placementId withFinishState:(UnityAdsShowCompletionState)state {
-    showDebugAlert(@"🎬 測試成功", @"廣告順利播放完畢！");
+    NSLog(@"[IPA918] 💰 廣告播放完畢！準備收錢！");
 }
 - (void)unityAdsShowFailed:(NSString *)placementId withError:(UnityAdsShowError)error withMessage:(NSString *)message {
-    showDebugAlert(@"🔴 播放失敗", message);
+    NSLog(@"[IPA918] 🔴 廣告播放中斷/失敗: %@", message);
 }
 - (void)unityAdsShowStart:(NSString *)placementId {}
 - (void)unityAdsShowClick:(NSString *)placementId {}
 
-// --- 🎯 你的無敵防護雷達：動態偵測 + 粉碎隱形觸控牆 ---
+// --- 🎯 無敵防護雷達：默默粉碎隱形觸控牆 ---
 - (void)startRadar {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -157,13 +149,11 @@ static void showDebugAlert(NSString *title, NSString *message) {
             if ([txt containsString:@"tampered"] || [txt containsString:@"injected"] || 
                 [txt isEqualToString:@"Understood"] || [txt isEqualToString:@"WARNING"]) {
                 
-                // 🌟 觸控失靈修復：一路往上找，找出外掛的「全螢幕隱形玻璃」！
                 UIView *shield = view;
                 while (shield.superview) {
                     UIView *parent = shield.superview;
                     NSString *parentClass = NSStringFromClass([parent class]);
                     
-                    // 🛑 邊界防護：碰到遊戲的核心畫布或系統母體，立刻停止，保護遊戲本體！
                     if ([parent isKindOfClass:[UIWindow class]]) break;
                     if (parent == parent.window.rootViewController.view) break;
                     if ([parentClass containsString:@"Unity"]) break;
@@ -173,12 +163,11 @@ static void showDebugAlert(NSString *title, NSString *message) {
                     shield = parent;
                 }
                 
-                NSLog(@"[IPA918] 🎯 抓到自定義警告窗！粉碎隱形玻璃！");
-                // 🌟 將外掛的隱形玻璃徹底連根拔起！解放底層的遊戲觸控！
+                NSLog(@"[IPA918] 🎯 默默拔除外掛警告窗，深藏功與名！");
                 shield.hidden = YES;
                 shield.userInteractionEnabled = NO;
                 shield.alpha = 0.0;
-                shield.frame = CGRectMake(-9999, -9999, 1, 1); // 丟到畫面外
+                shield.frame = CGRectMake(-9999, -9999, 1, 1); 
                 [shield removeFromSuperview];
             }
         }
@@ -211,22 +200,22 @@ static void showDebugAlert(NSString *title, NSString *message) {
                                                        queue:[NSOperationQueue mainQueue]
                                                   usingBlock:^(NSNotification * _Nonnull note) {
         
-        NSLog(@"[IPA918] 📢 收到啟動廣播！開始執行 UnityAds 邏輯");
+        NSLog(@"[IPA918] 📢 啟動廣播到達！正式啟動所有引擎！");
         
-        // 🌟 啟動你的無敵彈窗抹除雷達
+        // 🌟 啟動彈窗抹除雷達 (保護遊戲畫面乾淨)
         [[UnityAdsHelper sharedInstance] startRadar];
         
-        // 1. 初始化 UnityAds
-        [UnityAds initialize:myGameId testMode:YES initializationDelegate:[UnityAdsHelper sharedInstance]];
+        // 🌟 1. 初始化 UnityAds (注意：這裡 testMode 已經改成 NO 囉！)
+        [UnityAds initialize:myGameId testMode:NO initializationDelegate:[UnityAdsHelper sharedInstance]];
         
-        // 2. 開始 10 秒倒數計時，時間到播放廣告
+        // 🌟 2. 10 秒倒數，時間到且廣告備妥就直接放！
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             isTenSecondTimerExpired = YES; 
             
-            if (!isAdReadyToShow) {
-                showDebugAlert(@"⏱️ 10秒到了", @"廣告正在努力下載中，如果一直沒出來可能是網路或後台設定問題。");
-            } else {
+            if (isAdReadyToShow) {
                 [[UnityAdsHelper sharedInstance] tryTriggerBulldozeShow];
+            } else {
+                NSLog(@"[IPA918] ⏳ 10秒到了但正式廣告還沒抓到，等它下載好會自動補放。");
             }
         });
         
