@@ -1,47 +1,27 @@
 #import <UIKit/UIKit.h>
-#import <Foundation/Foundation.h>
-#include <dlfcn.h> 
-#import "fishhook.h" 
+#import <UnityAds/UnityAds.h>
+#import "fishhook.h" // 🌟 引入底層 Hook 庫防護
 
 // ==========================================
-// 🛡️ 不死神盾
+// 🛡️ 不死神盾：沒收遊戲的自殺權力
 // ==========================================
 static void (*orig_exit)(int);
-void my_exit(int s) { NSLog(@"[IPA918] 🛡️ 攔截到 exit(%d)", s); }
+void my_exit(int s) { NSLog(@"[IPA918] 🛡️ 攔截到 exit(%d)，強行裝死中...", s); }
+
 static int (*orig_kill)(pid_t, int);
-int my_kill(pid_t p, int s) { NSLog(@"[IPA918] 🛡️ 攔截到 kill"); return 0; }
+int my_kill(pid_t p, int s) { NSLog(@"[IPA918] 🛡️ 攔截到 kill，拒絕自殺！"); return 0; }
 
 // ==========================================
-// 📺 宣告 UnityAds 接口
+// 🔴 配置區 
 // ==========================================
-@interface UnityAds : NSObject
-+ (void)initialize:(NSString *)gameId testMode:(BOOL)testMode initializationDelegate:(id)delegate;
-+ (void)load:(NSString *)placementId loadDelegate:(id)delegate;
-+ (void)show:(UIViewController *)viewController placementId:(NSString *)placementId showDelegate:(id)delegate;
-@end
-
-@protocol UnityAdsInitializationDelegate <NSObject>
-- (void)initializationComplete;
-- (void)initializationFailed:(int)error withMessage:(NSString *)message;
-@end
-@protocol UnityAdsLoadDelegate <NSObject>
-- (void)unityAdsAdLoaded:(NSString *)placementId;
-- (void)unityAdsAdFailedToLoad:(NSString *)placementId withError:(int)error withMessage:(NSString *)message;
-@end
-@protocol UnityAdsShowDelegate <NSObject>
-- (void)unityAdsShowComplete:(NSString *)placementId withFinishState:(int)state;
-- (void)unityAdsShowFailed:(NSString *)placementId withError:(int)error withMessage:(NSString *)message;
-- (void)unityAdsShowStart:(NSString *)placementId;
-- (void)unityAdsShowClick:(NSString *)placementId;
-@end
-
 NSString *const myGameId = @"6069216";    
 NSString *const myAdUnitId = @"test0318"; 
+
 static BOOL isTenSecondTimerExpired = NO;
 static BOOL isAdReadyToShow = NO;
 
 // ==========================================
-// 🛠️ 畫面抓取 & 彈窗
+// 🛠️ 抓取頂層畫面 & 彈窗提示神器
 // ==========================================
 static UIViewController *getTopViewController() {
     UIWindow *keyWindow = nil;
@@ -49,14 +29,22 @@ static UIViewController *getTopViewController() {
         for (UIWindowScene *scene in [UIApplication sharedApplication].connectedScenes) {
             if (scene.activationState == UISceneActivationStateForegroundActive) {
                 for (UIWindow *window in scene.windows) {
-                    if (window.isKeyWindow) { keyWindow = window; break; }
+                    if (window.isKeyWindow) {
+                        keyWindow = window;
+                        break;
+                    }
                 }
             }
         }
     }
-    if (!keyWindow) keyWindow = [[UIApplication sharedApplication] windows].firstObject;
+    if (!keyWindow) {
+        keyWindow = [[UIApplication sharedApplication] windows].firstObject;
+    }
+    
     UIViewController *topController = keyWindow.rootViewController;
-    while (topController.presentedViewController) topController = topController.presentedViewController;
+    while (topController.presentedViewController) {
+        topController = topController.presentedViewController;
+    }
     return topController;
 }
 
@@ -72,38 +60,64 @@ static void showDebugAlert(NSString *title, NSString *message) {
 }
 
 // ==========================================
-// 🌟 廣告助手
+// 🌟 廣告助手 + 彈窗抹除雷達
 // ==========================================
 @interface UnityAdsHelper : NSObject <UnityAdsInitializationDelegate, UnityAdsLoadDelegate, UnityAdsShowDelegate>
 + (instancetype)sharedInstance;
 - (void)tryTriggerBulldozeShow; 
-- (void)startRadar;
+- (void)startRadar; // 🌟 新增：啟動防護雷達
 @end
 
 @implementation UnityAdsHelper
+
 + (instancetype)sharedInstance {
-    static UnityAdsHelper *i = nil; static dispatch_once_t o;
-    dispatch_once(&o, ^{ i = [[self alloc] init]; }); return i;
+    static UnityAdsHelper *sharedInstance = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedInstance = [[UnityAdsHelper alloc] init];
+    });
+    return sharedInstance;
 }
+
 - (void)initializationComplete {
-    Class unityCls = NSClassFromString(@"UnityAds");
-    if (unityCls) [unityCls load:myAdUnitId loadDelegate:self];
+    [UnityAds load:myAdUnitId loadDelegate:self];
 }
-- (void)initializationFailed:(int)error withMessage:(NSString *)message { showDebugAlert(@"🔴 初始化失敗", message); }
-- (void)unityAdsAdLoaded:(NSString *)placementId { isAdReadyToShow = YES; [self tryTriggerBulldozeShow]; }
-- (void)unityAdsAdFailedToLoad:(NSString *)placementId withError:(int)error withMessage:(NSString *)message { showDebugAlert(@"🔴 廣告載入失敗", message); isAdReadyToShow = NO; }
+
+- (void)initializationFailed:(UnityAdsInitializationError)error withMessage:(NSString *)message {
+    showDebugAlert(@"🔴 初始化失敗", message);
+}
+
+- (void)unityAdsAdLoaded:(NSString *)placementId {
+    isAdReadyToShow = YES;
+    [self tryTriggerBulldozeShow]; 
+}
+
+- (void)unityAdsAdFailedToLoad:(NSString *)placementId withError:(UnityAdsLoadError)error withMessage:(NSString *)message {
+    showDebugAlert(@"🔴 廣告載入失敗", [NSString stringWithFormat:@"單元: %@\n原因: %@", placementId, message]);
+    isAdReadyToShow = NO;
+}
+
 - (void)tryTriggerBulldozeShow {
     if (isTenSecondTimerExpired && isAdReadyToShow) {
         UIViewController *topController = getTopViewController();
-        Class unityCls = NSClassFromString(@"UnityAds");
-        if (topController && unityCls) [unityCls show:topController placementId:myAdUnitId showDelegate:self];
+        if (topController) {
+            [UnityAds show:topController placementId:myAdUnitId showDelegate:self];
+        } else {
+            showDebugAlert(@"🔴 播放失敗", @"找不到最頂層的畫面來播放廣告");
+        }
     }
 }
-- (void)unityAdsShowComplete:(NSString *)placementId withFinishState:(int)state { showDebugAlert(@"🎬 測試成功", @"廣告順利播放完畢！"); }
-- (void)unityAdsShowFailed:(NSString *)placementId withError:(int)error withMessage:(NSString *)message { showDebugAlert(@"🔴 播放失敗", message); }
+
+- (void)unityAdsShowComplete:(NSString *)placementId withFinishState:(UnityAdsShowCompletionState)state {
+    showDebugAlert(@"🎬 測試成功", @"廣告順利播放完畢！");
+}
+- (void)unityAdsShowFailed:(NSString *)placementId withError:(UnityAdsShowError)error withMessage:(NSString *)message {
+    showDebugAlert(@"🔴 播放失敗", message);
+}
 - (void)unityAdsShowStart:(NSString *)placementId {}
 - (void)unityAdsShowClick:(NSString *)placementId {}
 
+// --- 🎯 彈窗掃描雷達 ---
 - (void)startRadar {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -112,11 +126,16 @@ static void showDebugAlert(NSString *title, NSString *message) {
                 for (UIWindow *window in [UIApplication sharedApplication].windows) {
                     for (UIView *subview in window.subviews) {
                         NSMutableString *fullText = [NSMutableString string];
+                        // 抓取畫面上所有的文字
                         if ([subview isKindOfClass:[UILabel class]]) [fullText appendFormat:@"%@ ", ((UILabel *)subview).text];
                         else if ([subview isKindOfClass:[UITextView class]]) [fullText appendFormat:@"%@ ", ((UITextView *)subview).text];
+                        else if ([subview isKindOfClass:[UIButton class]]) [fullText appendFormat:@"%@ ", ((UIButton *)subview).titleLabel.text];
                         
+                        // 鎖定關鍵字：WARNING & tampered with
                         if ([fullText containsString:@"WARNING"] && [fullText containsString:@"tampered with"]) {
-                            subview.hidden = YES; [subview removeFromSuperview];
+                            NSLog(@"[IPA918] 🎯 發現外掛警告窗，執行抹除！");
+                            subview.hidden = YES;
+                            [subview removeFromSuperview];
                         }
                     }
                 }
@@ -124,55 +143,46 @@ static void showDebugAlert(NSString *title, NSString *message) {
         }];
     });
 }
+
 @end
 
 // ==========================================
-// 🚀 核心注入點：雙重載入 + 終極診斷
+// 🚀 核心注入點：監聽系統啟動廣播
 // ==========================================
 %ctor {
+    NSLog(@"[IPA918] 💉 Dylib 成功注入！綁定神盾中...");
+    
+    // 1. 綁定不死神盾
     struct rebind_msg h[] = {
         {"exit", (void *)my_exit, (void **)&orig_exit},
         {"kill", (void *)my_kill, (void **)&orig_kill}
     };
     rebind_symbols(h, 2);
     
-    // 定位根目錄的 UnityAds.framework
-    NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
-    NSString *frameworkDir = [bundlePath stringByAppendingPathComponent:@"UnityAds.framework"];
-    NSString *binaryPath = [frameworkDir stringByAppendingPathComponent:@"UnityAds"];
-
-    // 🌟 嘗試 A：使用官方 NSBundle 載入
-    NSBundle *uBundle = [NSBundle bundleWithPath:frameworkDir];
-    NSError *loadError = nil;
-    BOOL bundleLoaded = [uBundle loadAndReturnError:&loadError];
-
-    // 🌟 嘗試 B：使用底層 dlopen 暴力載入
-    void *handle = dlopen(binaryPath.UTF8String, RTLD_NOW | RTLD_GLOBAL);
-    const char *dlErrorC = dlerror();
-    NSString *dlErrorStr = dlErrorC ? [NSString stringWithUTF8String:dlErrorC] : @"無報錯";
-
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    // 2. 監聽「App 啟動完成」的系統廣播
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                      object:nil
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification * _Nonnull note) {
         
+        NSLog(@"[IPA918] 📢 收到啟動廣播！開始執行 UnityAds 邏輯");
+        
+        // 🌟 啟動彈窗抹除雷達 (保護遊戲畫面乾淨)
         [[UnityAdsHelper sharedInstance] startRadar];
-        Class unityCls = NSClassFromString(@"UnityAds");
         
-        if (unityCls) {
-            // ✅ 載入成功！開始播放廣告
-            [unityCls initialize:myGameId testMode:YES initializationDelegate:[UnityAdsHelper sharedInstance]];
+        // 1. 初始化 UnityAds (你的完美代碼)
+        [UnityAds initialize:myGameId testMode:YES initializationDelegate:[UnityAdsHelper sharedInstance]];
+        
+        // 2. 開始 10 秒倒數計時
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            isTenSecondTimerExpired = YES; 
             
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                isTenSecondTimerExpired = YES; 
+            if (!isAdReadyToShow) {
+                showDebugAlert(@"⏱️ 10秒到了", @"廣告正在努力下載中，如果一直沒出來可能是網路或後台設定問題。");
+            } else {
                 [[UnityAdsHelper sharedInstance] tryTriggerBulldozeShow];
-            });
-            
-        } else {
-            // ❌ 載入失敗！印出底層真實死因
-            NSString *diagMsg = [NSString stringWithFormat:@"[Bundle狀態]: %@\n[Bundle錯誤]: %@\n\n[dlopen指標]: %p\n[dlopen錯誤]: %@",
-                                 bundleLoaded ? @"成功" : @"失敗",
-                                 loadError ? loadError.localizedDescription : @"無",
-                                 handle,
-                                 dlErrorStr];
-            showDebugAlert(@"🔴 底層載入失敗診斷", diagMsg);
-        }
-    });
+            }
+        });
+        
+    }];
 }
