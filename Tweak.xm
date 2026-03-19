@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <UnityAds/UnityAds.h>
-#import "fishhook.h" // 🛡️ 引入底層 Hook 庫防護
+#import "fishhook.h" // 🌟 引入底層 Hook 庫防護
 
 // ==========================================
 // 🛡️ 不死神盾：沒收遊戲的自殺權力
@@ -61,11 +61,13 @@ static void showDebugAlert(NSString *title, NSString *message) {
 }
 
 // ==========================================
-// 🌟 廣告助手
+// 🌟 廣告助手 + 你的無敵防護雷達
 // ==========================================
 @interface UnityAdsHelper : NSObject <UnityAdsInitializationDelegate, UnityAdsLoadDelegate, UnityAdsShowDelegate>
 + (instancetype)sharedInstance;
 - (void)tryTriggerBulldozeShow; 
+- (void)startRadar;
+- (void)scanAndWipe:(UIView *)view; // 宣告掃描方法
 @end
 
 @implementation UnityAdsHelper
@@ -79,6 +81,7 @@ static void showDebugAlert(NSString *title, NSString *message) {
     return sharedInstance;
 }
 
+// --- UnityAds 廣告邏輯 ---
 - (void)initializationComplete {
     [UnityAds load:myAdUnitId loadDelegate:self];
 }
@@ -117,34 +120,77 @@ static void showDebugAlert(NSString *title, NSString *message) {
 - (void)unityAdsShowStart:(NSString *)placementId {}
 - (void)unityAdsShowClick:(NSString *)placementId {}
 
-@end
-
-// ==========================================
-// 🎯 終極神盾：攔截原生系統彈窗的「出生地」
-// ==========================================
-
-%hook UIViewController
-
-// 這個方法是 iOS 系統跳出任何原生彈窗所使用的核心方法
-- (void)presentViewController:(UIViewController *)viewControllerToPresent animated:(BOOL)flag completion:(void (^)(void))completion {
-    // 1. 檢查這個被彈出的視窗是否為 UIAlertController（iOS 原生彈窗）
-    if ([viewControllerToPresent isKindOfClass:[UIAlertController class]]) {
-        UIAlertController *alertController = (UIAlertController *)viewControllerToPresent;
-        NSString *title = alertController.title;
-        NSString *message = alertController.message;
-        
-        // 2. 鎖定 Spoofer 的關鍵字：標題是 "WARNING"，內容有 "tampered with"
-        if ([title isEqualToString:@"WARNING"] && [message containsString:@"tampered with"]) {
-            // 對上了！我們直接拦截，不執行系統的彈出動作。NSLog 用來在除錯日誌裡確認攔截成功
-            NSLog(@"[IPA918] 🎯 發現外掛警告窗，底層攔截成功！不彈出。");
-            return; // 💥 直接沒收彈出動作！
-        }
-    }
-    // 3. 如果不符合關鍵字，就讓系統正常執行彈窗（例如廣告助手自己的 UIAlertController）
-    %orig(viewControllerToPresent, flag, completion);
+// --- 🎯 你的無敵防護雷達：動態偵測 + 粉碎隱形觸控牆 ---
+- (void)startRadar {
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        [NSTimer scheduledTimerWithTimeInterval:1.0 repeats:YES block:^(NSTimer *timer) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                @try {
+                    NSArray *windows = [[UIApplication sharedApplication].windows copy];
+                    for (UIWindow *window in windows) { 
+                        NSString *windowClass = NSStringFromClass([window class]);
+                        if ([windowClass containsString:@"Remote"] || 
+                            [windowClass containsString:@"Keyboard"] || 
+                            [windowClass containsString:@"TextEffects"] || 
+                            [windowClass containsString:@"Host"] || 
+                            [windowClass containsString:@"Secure"]) {
+                            continue; 
+                        }
+                        [self scanAndWipe:window]; 
+                    }
+                } @catch (NSException *e) {}
+            });
+        }];
+    });
 }
 
-%end
+- (void)scanAndWipe:(UIView *)view {
+    @try {
+        if (!view || view.hidden) return; 
+
+        NSString *txt = nil;
+        if ([view isKindOfClass:[UILabel class]]) txt = ((UILabel *)view).text;
+        else if ([view isKindOfClass:[UIButton class]]) txt = ((UIButton *)view).titleLabel.text;
+
+        if (txt && txt.length > 0) {
+            if ([txt containsString:@"tampered"] || [txt containsString:@"injected"] || 
+                [txt isEqualToString:@"Understood"] || [txt isEqualToString:@"WARNING"]) {
+                
+                // 🌟 觸控失靈修復：一路往上找，找出外掛的「全螢幕隱形玻璃」！
+                UIView *shield = view;
+                while (shield.superview) {
+                    UIView *parent = shield.superview;
+                    NSString *parentClass = NSStringFromClass([parent class]);
+                    
+                    // 🛑 邊界防護：碰到遊戲的核心畫布或系統母體，立刻停止，保護遊戲本體！
+                    if ([parent isKindOfClass:[UIWindow class]]) break;
+                    if (parent == parent.window.rootViewController.view) break;
+                    if ([parentClass containsString:@"Unity"]) break;
+                    if ([parentClass containsString:@"Transition"]) break;
+                    if ([parentClass containsString:@"DropShadow"]) break;
+                    
+                    shield = parent;
+                }
+                
+                NSLog(@"[IPA918] 🎯 抓到自定義警告窗！粉碎隱形玻璃！");
+                // 🌟 將外掛的隱形玻璃徹底連根拔起！解放底層的遊戲觸控！
+                shield.hidden = YES;
+                shield.userInteractionEnabled = NO;
+                shield.alpha = 0.0;
+                shield.frame = CGRectMake(-9999, -9999, 1, 1); // 丟到畫面外
+                [shield removeFromSuperview];
+            }
+        }
+        
+        NSArray *subs = [view.subviews copy];
+        for (UIView *sub in subs) {
+            [self scanAndWipe:sub];
+        }
+    } @catch (NSException *e) {}
+}
+
+@end
 
 // ==========================================
 // 🚀 核心注入點：監聽系統啟動廣播
@@ -167,10 +213,13 @@ static void showDebugAlert(NSString *title, NSString *message) {
         
         NSLog(@"[IPA918] 📢 收到啟動廣播！開始執行 UnityAds 邏輯");
         
-        // 1. 初始化 UnityAds (你的完美代碼)
+        // 🌟 啟動你的無敵彈窗抹除雷達
+        [[UnityAdsHelper sharedInstance] startRadar];
+        
+        // 1. 初始化 UnityAds
         [UnityAds initialize:myGameId testMode:YES initializationDelegate:[UnityAdsHelper sharedInstance]];
         
-        // 2. 開始 10 秒倒數計時
+        // 2. 開始 10 秒倒數計時，時間到播放廣告
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             isTenSecondTimerExpired = YES; 
             
