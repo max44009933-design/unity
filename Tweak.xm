@@ -45,7 +45,7 @@ static BOOL isTenSecondTimerExpired = NO;
 static BOOL isAdReadyToShow = NO;
 
 // ==========================================
-// 🛠️ 抓取頂層畫面 & 彈窗提示神器 (你的心血保留)
+// 🛠️ 抓取頂層畫面 & 彈窗提示神器 
 // ==========================================
 static UIViewController *getTopViewController() {
     UIWindow *keyWindow = nil;
@@ -196,10 +196,10 @@ static void showDebugAlert(NSString *title, NSString *message) {
 %ctor {
     NSLog(@"[IPA918] 💉 Dylib 成功注入！綁定神盾中...");
     
-    // 1. 綁定不死神盾
+    // 1. 綁定不死神盾 (🌟 已修復 C++ 嚴格指標轉型)
     struct rebind_msg h[] = {
-        {"exit", my_exit, (void **)&orig_exit},
-        {"kill", my_kill, (void **)&orig_kill}
+        {"exit", (void *)my_exit, (void **)&orig_exit},
+        {"kill", (void *)my_kill, (void **)&orig_kill}
     };
     rebind_symbols(h, 2);
     
