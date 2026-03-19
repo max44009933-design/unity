@@ -1,20 +1,11 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
-
-// 🌟 解決 C 與 C++ (xm) 之間的編譯代溝
-#ifdef __cplusplus
-extern "C" {
-#endif
-#import "fishhook.h"
-#ifdef __cplusplus
-}
-#endif
-
-// 下面的代碼完全不用動，保持原樣...
+#import "fishhook.h" // 🌟 乾淨引入，不加任何包裝
 
 // ==========================================
 // 🛡️ 不死神盾：沒收遊戲的自殺權力
 // ==========================================
+// （下面保持你原本的代碼即可，不用動）=====
 static void (*orig_exit)(int);
 void my_exit(int s) { NSLog(@"[IPA918] 🛡️ 攔截到 exit(%d)，強行裝死中...", s); }
 
