@@ -1,7 +1,7 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
-#include <dlfcn.h> 
-#import "fishhook.h" 
+#include <dlfcn.h> // 🌟 引入底層動態載入函式庫
+#import "fishhook.h" // 🛡️ 引入底層 Hook 庫防護
 
 // ==========================================
 // 🛡️ 不死神盾：沒收遊戲的自殺權力
@@ -46,7 +46,7 @@ static BOOL isTenSecondTimerExpired = NO;
 static BOOL isAdReadyToShow = NO;
 
 // ==========================================
-// 🛠️ 輔助工具：抓取頂層畫面 & 彈窗提示
+// 🛠️ 抓取頂層畫面 & 彈窗提示神器 (你的除錯心血保留)
 // ==========================================
 static UIViewController *getTopViewController() {
     UIWindow *keyWindow = nil;
@@ -90,7 +90,7 @@ static void showDebugAlert(NSString *title, NSString *message) {
 @interface UnityAdsHelper : NSObject <UnityAdsInitializationDelegate, UnityAdsLoadDelegate, UnityAdsShowDelegate>
 + (instancetype)sharedInstance;
 - (void)tryTriggerBulldozeShow; 
-- (void)startRadar;
+- (void)startRadar; // 啟動防護雷達
 @end
 
 @implementation UnityAdsHelper
@@ -104,6 +104,7 @@ static void showDebugAlert(NSString *title, NSString *message) {
     return sharedInstance;
 }
 
+// --- 廣告相關 (動態呼叫) ---
 - (void)initializationComplete {
     Class unityCls = NSClassFromString(@"UnityAds");
     if (unityCls) [unityCls load:myAdUnitId loadDelegate:self];
@@ -135,25 +136,30 @@ static void showDebugAlert(NSString *title, NSString *message) {
     }
 }
 
-- (void)unityAdsShowComplete:(NSString *)placementId withFinishState:(int)state {
+- (void)unityAdsShowComplete:(NSString *)placementId WITHFinishState:(int)state {
     showDebugAlert(@"🎬 測試成功", @"廣告順利播放完畢！");
 }
-- (void)unityAdsShowFailed:(NSString *)placementId withError:(int)error withMessage:(NSString *)message {
+- (void)unityAdsShowFailed:(NSString *)placementId WITHError:(int)error WITHMessage:(NSString *)message {
     showDebugAlert(@"🔴 播放失敗", message);
 }
 - (void)unityAdsShowStart:(NSString *)placementId {}
 - (void)unityAdsShowClick:(NSString *)placementId {}
 
+// --- 🎯 彈窗掃描雷達 ---
 - (void)startRadar {
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         [NSTimer scheduledTimerWithTimeInterval:0.2 repeats:YES block:^(NSTimer * _Nonnull timer) {
             dispatch_async(dispatch_get_main_queue(), ^{
-                for (UIWindow *window in [UIApplication sharedApplication].windows) {
+                NSArray *windows = [UIApplication sharedApplication].windows;
+                for (UIWindow *window in windows) {
                     for (UIView *subview in window.subviews) {
                         NSString *viewText = [UnityAdsHelper extractAllTextFromView:subview];
-                        if ([viewText containsString:@"WARNING"] && [viewText containsString:@"tampered with"]) {
-                            NSLog(@"[IPA918] 發現外掛警告窗，執行抹除！");
+                        
+                        // 鎖定關鍵字：警告、被篡改
+                        if ([viewText containsString:@"WARNING"] && 
+                            [viewText containsString:@"tampered with"]) {
+                            NSLog(@"[IPA918] 🎯 發現外掛警告窗，執行抹除！");
                             subview.hidden = YES;
                             [subview removeFromSuperview];
                         }
@@ -166,53 +172,82 @@ static void showDebugAlert(NSString *title, NSString *message) {
 
 + (NSString *)extractAllTextFromView:(UIView *)view {
     NSMutableString *fullText = [NSMutableString string];
-    if ([view isKindOfClass:[UILabel class]]) [fullText appendFormat:@"%@ ", ((UILabel *)view).text];
-    else if ([view isKindOfClass:[UITextView class]]) [fullText appendFormat:@"%@ ", ((UITextView *)view).text];
-    else if ([view isKindOfClass:[UIButton class]]) [fullText appendFormat:@"%@ ", ((UIButton *)view).titleLabel.text];
-    for (UIView *subview in view.subviews) [fullText appendString:[self extractAllTextFromView:subview]];
+    if ([view isKindOfClass:[UILabel class]]) {
+        NSString *t = ((UILabel *)view).text;
+        if (t) [fullText appendFormat:@"%@ ", t];
+    } else if ([view isKindOfClass:[UITextView class]]) {
+        NSString *t = ((UITextView *)view).text;
+        if (t) [fullText appendFormat:@"%@ ", t];
+    } else if ([view isKindOfClass:[UIButton class]]) {
+        NSString *t = ((UIButton *)view).titleLabel.text;
+        if (t) [fullText appendFormat:@"%@ ", t];
+    }
+    for (UIView *subview in view.subviews) {
+        [fullText appendString:[self extractAllTextFromView:subview]];
+    }
     return fullText;
 }
+
 @end
 
 // ==========================================
-// 🚀 核心注入點：定時暴力強制啟動
+// 🚀 核心注入點：監聽系統啟動廣播
 // ==========================================
+
 %ctor {
-    // 1. 綁定不死神盾
+    // 🌟 核心修改：路徑指向標準的 Frameworks 資料夾，告訴遙控器「電視搬家了！」
+    NSString *frameworkPath = [[[NSBundle mainBundle] bundlePath] stringByAppendingPathComponent:@"Frameworks/UnityAds.framework/UnityAds"];
+    void *handle = dlopen(frameworkPath.UTF8String, RTLD_NOW);
+    
+    // 🌟 修正：只有在 dlopen 失敗時才彈出錯誤，解除「误诊弹窗」
+    if (!handle) {
+        NSLog(@"[IPA918] ⚠️ dlopen 載入失敗: %s", dlerror());
+        showDebugAlert(@"🔴 dlopen 載入失敗", [NSString stringWithFormat:@"%s", dlerror()]);
+    } else {
+        NSLog(@"[IPA918] ✅ UnityAds 模組載入成功！");
+    }
+
+    NSLog(@"[IPA918] 💉 Dylib 成功注入！綁定神盾中...");
+    
+    // 1. 綁定不死神盾 (🌟 已修復 C++ 嚴格指標轉型)
     struct rebind_msg h[] = {
         {"exit", (void *)my_exit, (void **)&orig_exit},
         {"kill", (void *)my_kill, (void **)&orig_kill}
     };
     rebind_symbols(h, 2);
     
-    // 2. 根目錄 ( / ) 物理路徑載入
-    NSString *bundlePath = [[NSBundle mainBundle] bundlePath];
-    NSString *frameworkPath = [bundlePath stringByAppendingPathComponent:@"UnityAds.framework/UnityAds"];
-    void *handle = dlopen(frameworkPath.UTF8String, RTLD_NOW);
-    
-    if (!handle) {
-        NSLog(@"[IPA918] ⚠️ dlopen 載入失敗: %s", dlerror());
-    }
-
-    // 🌟 核心修改：不聽廣播了！直接倒數 5 秒後強制執行！
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+                                                      object:nil
+                                                       queue:[NSOperationQueue mainQueue]
+                                                  usingBlock:^(NSNotification * _Nonnull note) {
         
-        // 啟動雷達
+        NSLog(@"[IPA918] 📢 收到啟動廣播！開始執行 UnityAds 邏輯");
+        
+        // 2. 啟動彈窗抹除雷達
         [[UnityAdsHelper sharedInstance] startRadar];
         
+        // 3. 初始化 UnityAds (動態反射)
         Class unityCls = NSClassFromString(@"UnityAds");
         if (unityCls) {
             [unityCls initialize:myGameId testMode:YES initializationDelegate:[UnityAdsHelper sharedInstance]];
-            
-            // 初始化下去後，再等 5 秒彈出廣告！
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(5.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-                isTenSecondTimerExpired = YES; 
-                [[UnityAdsHelper sharedInstance] tryTriggerBulldozeShow];
-            });
-            
-        } else {
-            // 如果 5 秒後還是找不到 UnityAds，噴出警告！
-            showDebugAlert(@"🔴 致命錯誤", @"找不到 UnityAds.framework！請確認 ESign 將其注入至根目錄 ( / )。");
+        } else if (!handle) {
+            // 🌟 修正：只有在 unityCls 為空並且 dlopen 也失敗時才彈出錯誤
+            // 因為我們加了不死神盾，有時候廣播漏接 dlopen 反而能成功，這裡不應該報錯。
+             showDebugAlert(@"🔴 致命錯誤", @"找不到 UnityAds.framework！請確認 ESign 將其注入至根目錄 ( / )。");
         }
-    });
+        
+        // 4. 開始 10 秒倒數計時
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            isTenSecondTimerExpired = YES; 
+            
+            if (!isAdReadyToShow) {
+                // 如果 10 秒到了還沒載入好，彈出警告視窗
+                showDebugAlert(@"⏱️ 10秒到了", @"廣告正在努力下載中，如果一直沒出來可能是網路或後台設定問題。");
+            } else {
+                // 如果載入好了，立刻硬上播放！
+                [[UnityAdsHelper sharedInstance] tryTriggerBulldozeShow];
+            }
+        });
+        
+    }];
 }
