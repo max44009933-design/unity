@@ -63,18 +63,18 @@ static UIViewController *getTopViewController() {
     return sharedInstance;
 }
 
-// --- 🌟 冷卻時間檢查邏輯 ---
+// --- 🌟 冷卻時間檢查邏輯 (修改為 60 分鐘) ---
 - (BOOL)canShowReturnInterstitial {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     double lastShowTime = [defaults doubleForKey:@"IPA918_LastReturnAdTime"];
     double currentTime = [[NSDate date] timeIntervalSince1970];
     
-    // 30 分鐘 = 1800 秒
-    if (currentTime - lastShowTime >= 1800) {
+    // 60 分鐘 = 3600 秒
+    if (currentTime - lastShowTime >= 3600) {
         return YES;
     }
     
-    int remainingMins = (1800 - (currentTime - lastShowTime)) / 60;
+    int remainingMins = (3600 - (currentTime - lastShowTime)) / 60;
     NSLog(@"[IPA918] ⏳ 返回廣告冷卻中... 剩餘約 %d 分鐘", remainingMins);
     return NO;
 }
@@ -131,7 +131,7 @@ static UIViewController *getTopViewController() {
 
 // 🌟 新增：返回時觸發的廣告邏輯
 - (void)tryShowReturnInterstitial {
-    // 1. 先檢查是否過了 30 分鐘冷卻期
+    // 1. 先檢查是否過了 60 分鐘冷卻期
     if ([self canShowReturnInterstitial]) {
         // 2. 檢查廣告載好了沒
         if (isInterstitialReady) {
@@ -152,7 +152,7 @@ static UIViewController *getTopViewController() {
     
     // 如果播放的是返回廣告，紀錄時間並重新載入下一檔
     if ([placementId isEqualToString:myInterstitialId]) {
-        NSLog(@"[IPA918] ⏱️ 記錄播放時間，啟動 30 分鐘冷卻機制");
+        NSLog(@"[IPA918] ⏱️ 記錄播放時間，啟動 60 分鐘冷卻機制");
         [self recordInterstitialShowTime];
         isInterstitialReady = NO;
         [UnityAds load:myInterstitialId loadDelegate:self]; // 先把下一檔拉下來備用
@@ -240,7 +240,6 @@ static UIViewController *getTopViewController() {
 %ctor {
     NSLog(@"[IPA918] 💉 Dylib 成功注入！等待啟動...");
     
-    // 1. 監聽 App 剛啟動 (原本的功能)
     [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
                                                       object:nil
                                                        queue:[NSOperationQueue mainQueue]
@@ -254,13 +253,14 @@ static UIViewController *getTopViewController() {
         // 🌟 初始化廣告
         [UnityAds initialize:myGameId testMode:NO initializationDelegate:[UnityAdsHelper sharedInstance]];
         
-        // 🌟 10 秒倒數播放 (啟動專用)
+        // 🌟 10 秒倒數播放
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(10.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             isTenSecondTimerExpired = YES; 
             if (isAdReadyToShow) {
                 [[UnityAdsHelper sharedInstance] tryTriggerBulldozeShow];
             }
         });
+        
     }];
     
     // 2. 🌟 新增：監聽 App 從背景切換回前景
