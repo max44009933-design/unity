@@ -5,8 +5,8 @@
 // ==========================================
 // 🔴 配置區 (正式上線賺錢版)
 // ==========================================
-NSString *const myGameId = @"6069216";    
-NSString *const myAdUnitId = @"test0318"; // 原本的啟動廣告
+NSString *const myGameId = @"5698859";    
+NSString *const myAdUnitId = @"Rewarded_iOS"; // 原本的啟動廣告
 NSString *const myInterstitialId = @"Interstitial_iOS"; // 🌟 新增：返回時的插頁廣告
 
 static BOOL isTenSecondTimerExpired = NO;
